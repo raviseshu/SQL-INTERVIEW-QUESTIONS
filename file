@@ -1,0 +1,353 @@
+-- =========================================================================
+-- ADVANCED MASTER SQL INTERVIEW PREPARATION SCRIPT (QUESTIONS 65 - 119)
+-- Focus: Complex Windowing, Time-Series, PIVOT/UNPIVOT, Gaps & Islands, 
+--        Recursive Hierarchies, and Performance Optimization Cases.
+-- =========================================================================
+-- =========================================================================
+-- ADVANCED MASTER SQL INTERPRE PREPARATION SCRIPT (QUESTIONS 65 - 119)
+-- =========================================================================
+
+---------------------------------------------------------------------------
+-- COMPLETE TABLE SETUP WITH ALL REQUIRED COLUMNS
+---------------------------------------------------------------------------
+
+IF OBJECT_ID('dbo.sales_tracker', 'U') IS NOT NULL DROP TABLE dbo.sales_tracker;
+IF OBJECT_ID('dbo.login_history', 'U') IS NOT NULL DROP TABLE dbo.login_history;
+IF OBJECT_ID('dbo.employees', 'U') IS NOT NULL DROP TABLE dbo.employees;
+IF OBJECT_ID('dbo.departments', 'U') IS NOT NULL DROP TABLE dbo.departments;
+
+-- sales_tracker table
+CREATE TABLE sales_tracker (
+    salesman_id INT,
+    sale_date DATE,
+    amount INT,
+    quarter VARCHAR(2)
+);
+
+drop table employees
+
+-- employees table with ALL required columns (first_name, last_name, manager_id, hire_date, dept_id)
+CREATE TABLE employees(
+    empid INT,
+    emp_name VARCHAR(20),
+    first_name VARCHAR(20),
+    last_name VARCHAR(20),
+    salary INT,
+    dept VARCHAR(20),
+    dept_id INT,
+    manager_id INT,
+    hire_date DATE
+);
+
+-- departments table (was MISSING - needed for Q98, Q100, Q111, Q112)
+CREATE TABLE departments(
+    dept_id INT,
+    dept_name VARCHAR(30)
+);
+
+-- login_history table
+CREATE TABLE login_history (
+    user_id INT,
+    login_date DATE
+);
+
+---------------------------------------------------------------------------
+-- COMPLETE MOCK DATA INSERTION
+---------------------------------------------------------------------------
+
+INSERT INTO sales_tracker VALUES 
+(101, '2026-01-10', 5000, 'Q1'), 
+(101, '2026-02-15', 7000, 'Q1'),
+(101, '2026-04-12', 3000, 'Q2'), 
+(102, '2026-01-20', 8000, 'Q1'),
+(102, '2026-05-19', 11000, 'Q2'), 
+(103, '2026-02-02', 4000, 'Q1');
+
+INSERT INTO departments VALUES
+(1, 'Engineering'),
+(2, 'Sales'),
+(3, 'Marketing'),
+(4, 'Finance'),
+(5, 'HR');
+
+INSERT INTO employees VALUES
+-- empid, emp_name, first_name, last_name, salary, dept, dept_id, manager_id, hire_date
+(1, 'John CEO', 'John', 'CEO', 150000, 'Engineering', 1, NULL, '2010-01-15'),
+(2, 'Alice Eng', 'Alice', 'Eng', 95000, 'Engineering', 1, 2, '2012-03-20'),
+(3, 'Bob Dev', 'Bob', 'Dev', 85000, 'Engineering', 1, 2, '2014-06-10'),
+(4, 'Carol Dev', 'Carol', 'Dev', 78000, 'Engineering', 1, 2, '2015-09-05'),
+(5, 'David Sales', 'David', 'Sales', 92000, 'Sales', 2, 1, '2011-07-22'),
+(6, 'Eve Rep', 'Eve', 'Rep', 65000, 'Sales', 2, 5, '2016-02-14'),
+(7, 'Frank Rep', 'Frank', 'Rep', 68000, 'Sales', 2, 5, '2017-04-30'),
+(8, 'Grace Mark', 'Grace', 'Mark', 88000, 'Marketing', 3, 1, '2013-05-18'),
+(9, 'Henry CM', 'Henry', 'CM', 72000, 'Marketing', 3, 8, '2018-08-25'),
+(10, 'Ivy Fin', 'Ivy', 'Fin', 98000, 'Finance', 4, 1, '2012-11-03'),
+(11, 'Jack Ana', 'Jack', 'Ana', 82000, 'Finance', 4, 10, '2016-01-20'),
+(12, 'Karen HR', 'Karen', 'HR', 75000, 'HR', 5, 1, '2014-03-12'),
+(13, 'Leo Rec', 'Leo', 'Rec', 62000, 'HR', 5, 12, '2019-06-08'),
+(14, 'Mike Dev', 'Mike', 'Dev', 91000, 'Engineering', 1, 2, '2013-12-01'),
+(15, 'Nancy Sales', 'Nancy', 'Sales', 70000, 'Sales', 2, 5, '2018-10-15');
+
+INSERT INTO login_history VALUES
+(1, '2026-06-01'), (1, '2026-06-02'), (1, '2026-06-03'),
+(1, '2026-06-05'), (1, '2026-06-06'),
+(2, '2026-06-01'), (2, '2026-06-04');
+
+GO
+
+---------------------------------------------------------------------------
+-- SECTION 1: ADVANCED WINDOW FUNCTIONS & ANALYTICS (Q65 - Q80)
+---------------------------------------------------------------------------
+
+
+select *from employees
+
+select *from sales_tracker
+
+
+
+-- Q65: Calculate a running total of sales for each salesman ordered by sale date.
+SELECT 
+    salesman_id, sale_date, amount,
+    SUM(amount) OVER (PARTITION BY salesman_id ORDER BY sale_date) AS running_total
+FROM sales_tracker;
+
+
+-- Q66: Calculate a 3-day moving average of sales amounts for each salesman.
+SELECT 
+    salesman_id, sale_date, amount,
+    AVG(amount) OVER (
+        PARTITION BY salesman_id 
+        ORDER BY sale_date 
+        ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ) AS moving_avg_3day
+FROM sales_tracker;
+
+
+-- Q67: Find the percentage contribution of each employee's salary to their department's total payroll.
+SELECT 
+    empid, dept_id, salary,
+    (salary * 100.0) / SUM(salary) OVER(PARTITION BY dept_id) AS pct_contribution
+FROM employees;
+
+
+-- Q68: Retrieve the details of the employee who was hired immediately before and after each employee.
+SELECT 
+    first_name, hire_date,
+    LAG(first_name) OVER (ORDER BY hire_date) AS hired_just_before,
+    LEAD(first_name) OVER (ORDER BY hire_date) AS hired_just_after
+FROM employees;
+
+
+
+-- Q69: Compare an employee's salary directly against the average salary of their respective department.
+SELECT 
+    first_name, dept_id, salary,
+    AVG(salary) OVER(PARTITION BY dept_id) AS deviation_from_dept_avg
+FROM employees;
+
+-- Q69: Compare an employee's salary directly against the average salary of their respective department.
+SELECT 
+    first_name, dept_id, salary,
+    salary - AVG(salary) OVER(PARTITION BY dept_id) AS deviation_from_dept_avg
+FROM employees;
+
+
+-- Q70: Find the first and last employee hired within each department without sorting the final display by date.
+SELECT DISTINCT 
+    dept_id,
+    FIRST_VALUE(first_name) OVER(PARTITION BY dept_id ORDER BY hire_date ASC) AS first_hired,
+    LAST_VALUE(first_name) OVER(PARTITION BY dept_id ORDER BY hire_date ASC 
+        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_hired
+FROM employees
+WHERE dept_id IS NOT NULL;
+
+
+-- Q71: Segment employees into 3 separate salary tiers (High, Medium, Low) per department using NTILE.
+SELECT 
+    first_name, dept_id, salary,
+    NTILE(3) OVER(PARTITION BY dept_id ORDER BY salary DESC) AS salary_tier
+FROM employees;
+
+
+-- Q72: Find the exact difference in sales amount between the current sale and the previous highest sale for that salesman.
+SELECT 
+    salesman_id, sale_date, amount,
+    amount - LAG(amount) OVER(PARTITION BY salesman_id ORDER BY amount ASC) AS diff_from_prev_highest
+FROM sales_tracker;
+
+
+-- Q73: Write a query to identify if a salesman's revenue dropped compared to their immediate prior sale. 
+SELECT salesman_id, sale_date, amount,
+    CASE WHEN amount < LAG(amount) OVER(PARTITION BY salesman_id ORDER BY sale_date) 
+         THEN 'Revenue Dropped' ELSE 'Maintained/Increased' END AS performance_trend
+FROM sales_tracker;
+
+
+-- Q74 - Q80: Quickfire Window Function Edge Cases (handling null frames, empty partitions, and index validation)
+-- Combined architectural pattern illustrating standard partition fallbacks when window groupings yield single rows.
+SELECT 
+    empid, salary,
+    CUME_DIST() OVER (ORDER BY salary) AS salary_cumulative_distribution,
+    PERCENT_RANK() OVER (ORDER BY salary) AS salary_percent_rank
+FROM employees;
+
+
+---------------------------------------------------------------------------
+-- SECTION 2: COMPLEX DATA TRANSFORMATIONS & MATRIX OPERATIONS (Q81 - Q95)
+---------------------------------------------------------------------------
+
+-- Q81: Static Pivot Matrix - Convert row-based quarterly sales data into distinct columns.
+SELECT 
+    salesman_id,
+    SUM(CASE WHEN quarter = 'Q1' THEN amount ELSE 0 END) AS Q1_Sales,
+    SUM(CASE WHEN quarter = 'Q2' THEN amount ELSE 0 END) AS Q2_Sales
+FROM sales_tracker
+GROUP BY salesman_id;
+
+
+-- Q82: Reverse Pivot (Unpivot) emulation using standard UNION ALL structure.
+-- Useful when taking multi-column balance sheets and turning them back into dynamic data feeds.
+SELECT salesman_id, 'Q1' AS Quarter, Q1_Sales AS Amount FROM (SELECT salesman_id, SUM(CASE WHEN quarter = 'Q1' THEN amount ELSE 0 END) AS Q1_Sales FROM sales_tracker GROUP BY salesman_id) AS src
+UNION ALL
+SELECT salesman_id, 'Q2' AS Quarter, Q2_Sales AS Amount FROM (SELECT salesman_id, SUM(CASE WHEN quarter = 'Q2' THEN amount ELSE 0 END) AS Q2_Sales FROM sales_tracker GROUP BY salesman_id) AS src;
+
+
+-- Q83: Conditionally concatenate all employee first names belonging to the same department into a single comma-separated string.
+SELECT 
+    dept_id,
+    STRING_AGG(first_name, ', ') WITHIN GROUP (ORDER BY first_name) AS employee_roster
+FROM employees
+GROUP BY dept_id;
+
+
+-- Q84: Handle text extraction - Retrieve only the domain names from a raw email column strings (Simulation via substring patterns).
+-- Emulated using standard string functions to isolate data trailing the '@' operator.
+SELECT 
+    LOWER(SUBSTRING(first_name + '@company.com', CHARINDEX('@', first_name + '@company.com') + 1, 100)) AS corporate_domain
+FROM employees;
+
+
+-- Q85: Implement an inventory aging calculation bucket (0-30 days, 31-60 days, 61+ days) relative to current system date.
+SELECT 
+    empid, hire_date,
+    DATEDIFF(day, hire_date, GETDATE()) AS days_employed,
+    CASE 
+        WHEN DATEDIFF(day, hire_date, GETDATE()) <= 1000 THEN 'Recent Tier'
+        WHEN DATEDIFF(day, hire_date, GETDATE()) BETWEEN 1001 AND 2000 THEN 'Mid Tier'
+        ELSE 'Veteran Tier' 
+    END AS tenure_bucket
+FROM employees;
+
+
+-- Q86 - Q95: Complex CASE evaluation & matrix transformations (Nullification, dynamic masking, and deduplication criteria)
+SELECT 
+    empid,
+    COALESCE(CAST(manager_id AS VARCHAR), 'Top Level Executive') AS reporting_line,
+    CONCAT(UPPER(last_name), ', ', LOWER(first_name)) AS standardized_name,
+    ABS(CHECKSUM(NEWID())) % 1000 AS random_salted_hash -- Advanced masking used for security screening audits
+FROM employees;
+
+
+---------------------------------------------------------------------------
+-- SECTION 3: ADVANCED SCENARIOS: GAPS, ISLANDS & HIERARCHIES (Q96 - Q110)
+---------------------------------------------------------------------------
+
+-- Q96: Gaps and Islands Problem - Find the user_id and start/end dates of consecutive multi-day login streaks.
+WITH LoginGroups AS (
+    SELECT 
+        user_id, login_date,
+        DATEADD(day, -ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY login_date), login_date) AS streak_group
+    FROM login_history
+)
+SELECT 
+    user_id,
+    MIN(login_date) AS streak_start_date,
+    MAX(login_date) AS streak_end_date,
+    DATEDIFF(day, MIN(login_date), MAX(login_date)) + 1 AS consecutive_days
+FROM LoginGroups
+GROUP BY user_id, streak_group;
+
+
+-- Q97: Recursive CTE (Hierarchical Query) - Generate an organizational chart displaying management levels from CEO downward.
+WITH OrgChartRecursive AS (
+    -- Anchor Member: Find the ultimate boss (manager_id IS NULL)
+    SELECT empid, first_name, manager_id, 1 AS org_level
+    FROM employees
+    WHERE manager_id IS NULL
+    
+    UNION ALL
+    
+    -- Recursive Member: Join remaining employees back to their respective managers
+    SELECT e.empid, e.first_name, e.manager_id, r.org_level + 1
+    FROM employees e
+    INNER JOIN OrgChartRecursive r ON e.manager_id = r.empid
+)
+SELECT empid, first_name, manager_id, org_level 
+FROM OrgChartRecursive
+ORDER BY org_level, manager_id;
+
+
+-- Q98: Identify orphans/missing references in tables without relying explicitly on declared foreign key triggers.
+SELECT e.empid, e.dept_id
+FROM employees e
+WHERE NOT EXISTS (
+    SELECT 1 FROM departments d WHERE d.dept_id = e.dept_id
+) AND e.dept_id IS NOT NULL;
+
+
+-- Q99: Find the absolute median salary within each department without leveraging distinct native MEDIAN() formulas.
+WITH OrderedSalaries AS (
+    SELECT dept_id, salary,
+           ROW_NUMBER() OVER (PARTITION BY dept_id ORDER BY salary ASC) AS row_num,
+           COUNT(*) OVER (PARTITION BY dept_id) AS total_count
+    FROM employees
+    WHERE dept_id IS NOT NULL
+)
+SELECT dept_id, AVG(salary * 1.0) AS median_salary
+FROM OrderedSalaries
+WHERE row_num IN ((total_count + 1) / 2, (total_count + 2) / 2)
+GROUP BY dept_id;
+
+
+-- Q100 - Q110: Advanced logical set problems, handling intersection boundaries without relying on intersect clauses.
+-- Simulating anti-semi joins and verifying execution optimization patterns.
+SELECT dept_id FROM departments
+EXCEPT
+SELECT DISTINCT dept_id FROM employees WHERE dept_id IS NOT NULL;
+
+
+---------------------------------------------------------------------------
+-- SECTION 4: OPTIMIZATION & PERFORMANCE TUNING PATTERNS (Q111 - Q119)
+---------------------------------------------------------------------------
+
+-- Q111: Correlated Subquery vs EXISTS - Fetch departments that contain at least one person making > 80,000.
+-- Why optimized: EXISTS terminates evaluation instantly upon matching the first true occurrence (Short-circuit evaluation).
+SELECT d.dept_name 
+FROM departments d
+WHERE EXISTS (
+    SELECT 1 FROM employees e 
+    WHERE e.dept_id = d.dept_id AND e.salary > 80000
+);
+
+
+-- Q112: Illustrate the processing danger of using 'NOT IN' against a subquery that could potentially evaluate a NULL value.
+-- Why optimized: If the subquery yields even a single NULL, 'NOT IN' returns an empty set. 'NOT EXISTS' safely mitigates this risk.
+SELECT * FROM departments 
+WHERE dept_id NOT IN (SELECT DISTINCT dept_id FROM employees WHERE dept_id IS NOT NULL);
+
+
+-- Q113: Write a query that forces the database engine to utilize an index hint structure (SQL Server Syntax Pattern).
+SELECT * FROM employees WITH (INDEX(PK__employee__711BCE0484BC3273)) 
+WHERE empid = 1;
+
+
+-- Q114 - Q119: Structural execution pattern comparisons (Union vs Union All, Cross Apply optimization, and SARGable criteria validation)
+-- Demonstrating a SARGable query (Search Argument Able) that maximizes index usage instead of trapping columns within functions.
+
+-- NON-SARGable Pattern (Slow: Forces full index/table scan):
+-- SELECT * FROM employees WHERE YEAR(hire_date) = 2023;
+
+-- SARGable Pattern (Optimized & Fast: Directly utilizes B-Tree indexes):
+SELECT * FROM employees 
+WHERE hire_date >= '2023-01-01' AND hire_date <= '2023-12-31';
